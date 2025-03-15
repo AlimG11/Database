@@ -1,0 +1,36 @@
+<!ELEMENT project (description, data, relations, user_roles, ui_api, programming_language, database)>
+
+<!ELEMENT description (overview, name, subject)>
+<!ELEMENT overview (#PCDATA)>
+<!ELEMENT name (#PCDATA)>
+<!ELEMENT subject (#PCDATA)>
+
+<!ELEMENT data (users, product_categories, products, purchase_history, supply_history)>
+<!ELEMENT users (field+)>
+<!ELEMENT product_categories (field+)>
+<!ELEMENT products (field+)>
+<!ELEMENT purchase_history (field+)>
+<!ELEMENT supply_history (field+)>
+
+<!ELEMENT field EMPTY>
+<!ATTLIST field name CDATA #REQUIRED
+                type CDATA #REQUIRED
+                settings CDATA #IMPLIED
+                reference CDATA #IMPLIED>
+
+<!ELEMENT relations (relation+)>
+<!ELEMENT relation EMPTY>
+<!ATTLIST relation source CDATA #REQUIRED
+                    target CDATA #REQUIRED
+                    type (many_to_one | one_to_many | many_to_many) #REQUIRED>
+
+<!ELEMENT user_roles (role+)>
+<!ELEMENT role (responsibility)>
+<!ATTLIST role name CDATA #REQUIRED>
+<!ELEMENT responsibility (#PCDATA)>
+
+<!ELEMENT ui_api (interface)>
+<!ELEMENT interface (#PCDATA)>
+
+<!ELEMENT programming_language (#PCDATA)>
+<!ELEMENT database (#PCDATA)>
