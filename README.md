@@ -10,27 +10,6 @@
 
 # Данные
 
-# Untitled Diagram documentation
-## Summary
-
-- [Introduction](#introduction)
-- [Database Type](#database-type)
-- [Table Structure](#table-structure)
-	- [users](#users)
-	- [product_categories](#product_categories)
-	- [products](#products)
-	- [purchase_history](#purchase_history)
-	- [supply_history](#supply_history)
-- [Relationships](#relationships)
-- [Database Diagram](#database-Diagram)
-
-## Introduction
-
-## Database type
-
-- **Database system:** PostgreSQL
-## Table structure
-
 ### users
 
 | Name        | Type          | Settings                      | References                    |
