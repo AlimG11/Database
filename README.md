@@ -10,63 +10,86 @@
 
 # Данные
 
-### users (Пользователи)
+# Untitled Diagram documentation
+## Summary
+
+- [Introduction](#introduction)
+- [Database Type](#database-type)
+- [Table Structure](#table-structure)
+	- [users](#users)
+	- [product_categories](#product_categories)
+	- [products](#products)
+	- [purchase_history](#purchase_history)
+	- [supply_history](#supply_history)
+- [Relationships](#relationships)
+- [Database Diagram](#database-Diagram)
+
+## Introduction
+
+## Database type
+
+- **Database system:** PostgreSQL
+## Table structure
+
+### users
 
 | Name        | Type          | Settings                      | References                    |
 |-------------|---------------|-------------------------------|-------------------------------|
-| **user_id** | SERIAL | 🔑 PK, not null  |  | |
-| **username** | VARCHAR(32) | not null , unique |  | |
-| **password** | VARCHAR(32) | not null  |  | |
-| **role** | VARCHAR(6) | not null  |  | |
-| **created_at** | DATE | not null  |  | | 
+| **user_id** | SERIAL | 🔑 PK, not null  |  | 
+| **username** | VARCHAR(32) | not null , unique |  | 
+| **password** | VARCHAR(32) | not null  |  | 
+| **user_role** | VARCHAR(6) | not null  |  | 
+| **created_at** | DATE | not null  |  | 
 
 
-### product_categories (Категории товаров)
+### product_categories
+
+| Name        | Type          | Settings                      | References                    | 
+|-------------|---------------|-------------------------------|-------------------------------|
+| **category_id** | SERIAL | 🔑 PK, not null  |  | 
+| **category_name** | VARCHAR(64) | not null , unique |  | 
+| **seller_id** | INTEGER | not null  | seller->users | 
+
+
+### products
 
 | Name        | Type          | Settings                      | References                    |
 |-------------|---------------|-------------------------------|-------------------------------|
-| **category_id** | SERIAL | 🔑 PK, not null  |  | |
-| **category_name** | VARCHAR(64) | not null , unique |  | | 
+| **product_id** | SERIAL | 🔑 PK, not null  |  | 
+| **seller_id** | INTEGER | not null  | products->seller | 
+| **category_id** | INTEGER | not null  | products->categories | 
+| **product_name** | VARCHAR(64) | not null  |  | 
+| **description** | VARCHAR(256) | not null  |  | 
+| **price** | NUMERIC(10,2) | not null  |  | 
+| **total_quantity** | INTEGER | not null , default: 0 |  | 
+| **date_od_update** | DATE | not null  |  | 
 
 
-### products (Товары)
-
-| Name        | Type          | Settings                      | References                    |
-|-------------|---------------|-------------------------------|-------------------------------|
-| **product_id** | SERIAL | 🔑 PK, not null  |  | |
-| **seller_id** | INTEGER | not null  | products->seller | |
-| **category_id** | INTEGER | not null  | products->categories | |
-| **product_name** | VARCHAR(64) | not null  |  | |
-| **description** | VARCHAR(256) | not null  |  | |
-| **price** | NUMERIC(10,2) | not null  |  | |
-| **total_quantity** | INTEGER | not null , default: 0 |  | |
-| **date_od_update** | DATE | not null  |  | | 
-
-
-### purchase_history (История покупок)
+### purchase_history
 
 | Name        | Type          | Settings                      | References                    |
 |-------------|---------------|-------------------------------|-------------------------------|
-| **purchase_id** | SERIAL | 🔑 PK, not null  |  | |
-| **client_id** | INTEGER | not null  | purchase_history->client | |
-| **product_id** | INTEGER | not null  | purchase_history->products | |
+| **purchase_id** | SERIAL | 🔑 PK, not null  |  | 
+| **client_id** | INTEGER | not null  | purchase_history->client | 
+| **product_id** | INTEGER | not null  | purchase_history->products | 
 | **quantity** | INTEGER | not null  |  | |
 | **purchase_date** | DATE | not null  |  | |
-| **total_price** | NUMERIC(10,2) | not null  |  | | 
+| **total_price** | NUMERIC(10,2) | not null  |  | 
+| **price** | NUMERIC((10,2)) | not null  |  |  
 
 
-### supply_history (История поставок)
+### supply_history
 
 | Name        | Type          | Settings                      | References                    |
 |-------------|---------------|-------------------------------|-------------------------------|
-| **supply_id** | SERIAL | 🔑 PK, not null  |  | |
-| **seller_id** | INTEGER | not null  | supply_history->seller | |
-| **product_id** | INTEGER | not null  | supply_history->products | |
-| **quantity** | INTEGER | not null  |  | |
-| **date_of_update** | DATE | not null  |  | | 
+| **supply_id** | SERIAL | 🔑 PK, not null  |  | 
+| **seller_id** | INTEGER | not null  | supply_history->seller | 
+| **product_id** | INTEGER | not null  | supply_history->products | 
+| **quantity** | INTEGER | not null  |  | 
+| **supply_date** | DATE | not null  |  | 
 
 
-## Отношения
+## Зависимости
 
 - **products to users**: many_to_one
 - **products to product_categories**: many_to_one
@@ -74,9 +97,9 @@
 - **purchase_history to products**: many_to_one
 - **supply_history to users**: many_to_one
 - **supply_history to products**: many_to_one
+- **product_categories to users**: many_to_one
 
-
-![ER Diagram](https://github.com/user-attachments/assets/f58bc621-26b2-4b49-997d-e1c8e8be9e57)
+![New diagram](https://github.com/user-attachments/assets/65854055-6e3c-40cf-9aec-088c0cb49b24)
 
 
 # Пользовательские роли
@@ -86,7 +109,7 @@
 - Продавец:
 
   Ответственность:
-    Выставляет новые товары на продажу
+    Выставляет новые товары на продажу и добовляет новые категории
     
 - Клиент:
 
