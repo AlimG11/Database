@@ -10,62 +10,65 @@
 
 # Данные
 
+- **Database system:** PostgreSQL
+## Table structure
+
 ### users
 
-| Name        | Type          | Settings                      | References                    |
-|-------------|---------------|-------------------------------|-------------------------------|
-| **user_id** | SERIAL | 🔑 PK, not null  |  | 
-| **username** | VARCHAR(32) | not null , unique |  | 
-| **password** | VARCHAR(32) | not null  |  | 
-| **user_role** | VARCHAR(6) | not null  |  | 
-| **created_at** | DATE | not null  |  | 
+| Name        | Type          | Settings                      | References                    | Note                           |
+|-------------|---------------|-------------------------------|-------------------------------|--------------------------------|
+| **user_id** | SERIAL | 🔑 PK, not null  |  | |
+| **username** | VARCHAR(32) | not null , unique |  |Имя пользователя |
+| **password** | VARCHAR(32) | not null  |  |Пароль пользаветеля |
+| **user_role** | VARCHAR(6) | not null  |  |Роль пользователя (клиент, продавец) |
+| **created_at** | DATE | not null  |  |Дата создания аккаунта пользователя | 
 
 
 ### product_categories
 
-| Name        | Type          | Settings                      | References                    | 
-|-------------|---------------|-------------------------------|-------------------------------|
-| **category_id** | SERIAL | 🔑 PK, not null  |  | 
-| **category_name** | VARCHAR(64) | not null , unique |  | 
-| **seller_id** | INTEGER | not null  | seller->users | 
+| Name        | Type          | Settings                      | References                    | Note                           |
+|-------------|---------------|-------------------------------|-------------------------------|--------------------------------|
+| **category_id** | SERIAL | 🔑 PK, not null  |  | |
+| **category_name** | VARCHAR(64) | not null , unique |  |Название категории товаров |
+| **seller_id** | INTEGER | not null  | seller->users |ID пользователя(продавца), который ввел эту категорию | 
 
 
 ### products
 
-| Name        | Type          | Settings                      | References                    |
-|-------------|---------------|-------------------------------|-------------------------------|
-| **product_id** | SERIAL | 🔑 PK, not null  |  | 
-| **seller_id** | INTEGER | not null  | products->seller | 
-| **category_id** | INTEGER | not null  | products->categories | 
-| **product_name** | VARCHAR(64) | not null  |  | 
-| **description** | VARCHAR(256) | not null  |  | 
-| **price** | NUMERIC(10,2) | not null  |  | 
-| **total_quantity** | INTEGER | not null , default: 0 |  | 
-| **date_od_update** | DATE | not null  |  | 
+| Name        | Type          | Settings                      | References                    | Note                           |
+|-------------|---------------|-------------------------------|-------------------------------|--------------------------------|
+| **product_id** | SERIAL | 🔑 PK, not null  |  | |
+| **seller_id** | INTEGER | not null  | products->seller |ID пользователя(продавца), у которого продается данный товар |
+| **category_id** | INTEGER | not null  | products->categories |ID категории товара |
+| **product_name** | VARCHAR(64) | not null  |  |Название товара |
+| **description** | VARCHAR(256) | not null  |  |Описание продукта |
+| **price** | NUMERIC(10,2) | not null  |  |Стоимость 1 единцы товара |
+| **total_quantity** | INTEGER | not null , default: 0 |  |Количество товара на складе |
+| **date_od_update** | DATE | not null  |  |Дата обновления товара | 
 
 
 ### purchase_history
 
-| Name        | Type          | Settings                      | References                    |
-|-------------|---------------|-------------------------------|-------------------------------|
-| **purchase_id** | SERIAL | 🔑 PK, not null  |  | 
-| **client_id** | INTEGER | not null  | purchase_history->client | 
-| **product_id** | INTEGER | not null  | purchase_history->products | 
-| **quantity** | INTEGER | not null  |  | |
-| **purchase_date** | DATE | not null  |  | |
-| **total_price** | NUMERIC(10,2) | not null  |  | 
-| **price** | NUMERIC((10,2)) | not null  |  |  
+| Name        | Type          | Settings                      | References                    | Note                           |
+|-------------|---------------|-------------------------------|-------------------------------|--------------------------------|
+| **purchase_id** | SERIAL | 🔑 PK, not null  |  | |
+| **client_id** | INTEGER | not null  | purchase_history->client |ID пользователя(клиента) который произвел эту покупку |
+| **product_id** | INTEGER | not null  | purchase_history->products |ID товара, которого купили |
+| **quantity** | INTEGER | not null  |  |Количество товара за покупку |
+| **price** | NUMERIC | not null  |  |Цена 1 единицы товара |
+| **total_price** | NUMERIC(10,2) | not null  |  |Общая сумма покупки |
+| **purchase_date** | DATE | not null  |  |Дата покупки | 
 
 
 ### supply_history
 
-| Name        | Type          | Settings                      | References                    |
-|-------------|---------------|-------------------------------|-------------------------------|
-| **supply_id** | SERIAL | 🔑 PK, not null  |  | 
-| **seller_id** | INTEGER | not null  | supply_history->seller | 
-| **product_id** | INTEGER | not null  | supply_history->products | 
-| **quantity** | INTEGER | not null  |  | 
-| **supply_date** | DATE | not null  |  | 
+| Name        | Type          | Settings                      | References                    | Note                           |
+|-------------|---------------|-------------------------------|-------------------------------|--------------------------------|
+| **supply_id** | SERIAL | 🔑 PK, not null  |  | |
+| **seller_id** | INTEGER | not null  | supply_history->seller |ID пользователя(продавца), который произвел поставку |
+| **product_id** | INTEGER | not null  | supply_history->products |ID товара |
+| **quantity** | INTEGER | not null  |  |Количество товара за поставку |
+| **supply_date** | DATE | not null  |  |Дата поставки | 
 
 
 ## Зависимости
