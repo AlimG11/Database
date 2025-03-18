@@ -1,68 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE project SYSTEM "marketbase.dtd">
-<project>
-  <description>
-    <overview>Проект представляет собой систему для управления товарными запасами, покупка товаров и учёта клиентов.</overview>
-    <name>MarketBase</name>
-    <subject>Торговля и логистика. Проект ориентирован на предприятия, занимающиеся розничной или оптовой торговлей.</subject>
-  </description>
-  <data>
-    <users>
-      <field name="user_id" type="SERIAL" settings="PK, not null" />
-      <field name="username" type="VARCHAR(32)" settings="not null, unique" />
-      <field name="password" type="VARCHAR(32)" settings="not null" />
-      <field name="role" type="VARCHAR(6)" settings="not null" />
-      <field name="created_at" type="DATE" settings="not null" />
-    </users>
-    <product_categories>
-      <field name="category_id" type="SERIAL" settings="PK, not null" />
-      <field name="category_name" type="VARCHAR(64)" settings="not null, unique" />
-    </product_categories>
-    <products>
-      <field name="product_id" type="SERIAL" settings="PK, not null" />
-      <field name="seller_id" type="INTEGER" settings="not null" reference="products->seller" />
-      <field name="category_id" type="INTEGER" settings="not null" reference="products->categories" />
-      <field name="product_name" type="VARCHAR(64)" settings="not null" />
-      <field name="description" type="VARCHAR(256)" settings="not null" />
-      <field name="price" type="NUMERIC(10,2)" settings="not null" />
-      <field name="total_quantity" type="INTEGER" settings="not null, default: 0" />
-      <field name="date_od_update" type="DATE" settings="not null" />
-    </products>
-    <purchase_history>
-      <field name="purchase_id" type="SERIAL" settings="PK, not null" />
-      <field name="client_id" type="INTEGER" settings="not null" reference="purchase_history->client" />
-      <field name="product_id" type="INTEGER" settings="not null" reference="purchase_history->products" />
-      <field name="quantity" type="INTEGER" settings="not null" />
-      <field name="purchase_date" type="DATE" settings="not null" />
-      <field name="total_price" type="NUMERIC(10,2)" settings="not null" />
-    </purchase_history>
-    <supply_history>
-      <field name="supply_id" type="SERIAL" settings="PK, not null" />
-      <field name="seller_id" type="INTEGER" settings="not null" reference="supply_history->seller" />
-      <field name="product_id" type="INTEGER" settings="not null" reference="supply_history->products" />
-      <field name="quantity" type="INTEGER" settings="not null" />
-      <field name="date_of_update" type="DATE" settings="not null" />
-    </supply_history>
-  </data>
-  <relations>
-    <relation source="products" target="users" type="many_to_one" />
-    <relation source="products" target="product_categories" type="many_to_one" />
-    <relation source="purchase_history" target="users" type="many_to_one" />
-    <relation source="purchase_history" target="products" type="many_to_one" />
-    <relation source="supply_history" target="users" type="many_to_one" />
-    <relation source="supply_history" target="products" type="many_to_one" />
-  </relations>
-  <user_roles>
-    <role name="Продавец">
-      <responsibility>Выставляет новые товары на продажу</responsibility>
-    </role>
-    <role name="Клиент">
-      <responsibility>Может покупать товары</responsibility>
-    </role>
-  </user_roles>
-  <ui_api>
-    <interface>Консольный интерфейс</interface>
-  </ui_api>
-  <programming_language>Python</programming_language>
-  <database>PostgreSQL</database>
-</project>
+<!DOCTYPE marketbase SYSTEM "marketbase.dtd">
+<marketbase>
+    <description>
+        <project>MarketBase</project>
+        <domain>Торговля и логистика</domain>
+        <target>Предприятия розничной и оптовой торговли</target>
+    </description>
+    <database_system>PostgreSQL</database_system>
+    <tables>
+        <users>
+            <user_id type="SERIAL" primary_key="true" not_null="true" />
+            <username type="VARCHAR(32)" not_null="true" unique="true" />
+            <password type="VARCHAR(32)" not_null="true" />
+            <user_role type="VARCHAR(6)" not_null="true" />
+            <created_at type="DATE" not_null="true" />
+        </users>
+        <product_categories>
+            <category_id type="SERIAL" primary_key="true" not_null="true" />
+            <category_name type="VARCHAR(64)" not_null="true" unique="true" />
+            <seller_id type="INTEGER" not_null="true" references="users(user_id)" />
+        </product_categories>
+        <products>
+            <product_id type="SERIAL" primary_key="true" not_null="true" />
+            <seller_id type="INTEGER" not_null="true" references="users(user_id)" />
+            <category_id type="INTEGER" not_null="true" references="product_categories(category_id)" />
+            <product_name type="VARCHAR(64)" not_null="true" />
+            <description type="VARCHAR(256)" not_null="true" />
+            <price type="NUMERIC(10,2)" not_null="true" />
+            <total_quantity type="INTEGER" not_null="true" default="0" />
+            <date_of_update type="DATE" not_null="true" />
+        </products>
+        <purchase_history>
+            <purchase_id type="SERIAL" primary_key="true" not_null="true" />
+            <client_id type="INTEGER" not_null="true" references="users(user_id)" />
+            <product_id type="INTEGER" not_null="true" references="products(product_id)" />
+            <quantity type="INTEGER" not_null="true" />
+            <price type="NUMERIC" not_null="true" />
+            <total_price type="NUMERIC(10,2)" not_null="true" />
+            <purchase_date type="DATE" not_null="true" />
+        </purchase_history>
+        <supply_history>
+            <supply_id type="SERIAL" primary_key="true" not_null="true" />
+            <seller_id type="INTEGER" not_null="true" references="users(user_id)" />
+            <product_id type="INTEGER" not_null="true" references="products(product_id)" />
+            <quantity type="INTEGER" not_null="true" />
+            <supply_date type="DATE" not_null="true" />
+        </supply_history>
+    </tables>
+    <dependencies>
+        <relation from="products" to="users" type="many_to_one" />
+        <relation from="products" to="product_categories" type="many_to_one" />
+        <relation from="purchase_history" to="users" type="many_to_one" />
+        <relation from="purchase_history" to="products" type="many_to_one" />
+        <relation from="supply_history" to="users" type="many_to_one" />
+        <relation from="supply_history" to="products" type="many_to_one" />
+        <relation from="product_categories" to="users" type="many_to_one" />
+    </dependencies>
+    <roles>
+        <role name="seller">
+            <responsibility>Выставляет новые товары на продажу и добавляет новые категории</responsibility>
+        </role>
+        <role name="client">
+            <responsibility>Может покупать товары</responsibility>
+        </role>
+    </roles>
+    <ui_api>
+        <interface>Консольный интерфейс</interface>
+    </ui_api>
+    <technology>
+        <programming_language>Python</programming_language>
+        <database>PostgreSQL</database>
+    </technology>
+</marketbase>
