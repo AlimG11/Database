@@ -1,30 +1,51 @@
-<!ELEMENT project (description, data, relations, user_roles, ui_api, programming_language, database)>
+<!ELEMENT marketbase (description, database_system, tables, dependencies, roles, ui_api, technology)>
+<!ELEMENT description (project, domain, target)>
+<!ELEMENT project (#PCDATA)>
+<!ELEMENT domain (#PCDATA)>
+<!ELEMENT target (#PCDATA)>
 
-<!ELEMENT description (overview, name, subject)>
-<!ELEMENT overview (#PCDATA)>
-<!ELEMENT name (#PCDATA)>
-<!ELEMENT subject (#PCDATA)>
+<!ELEMENT database_system (#PCDATA)>
 
-<!ELEMENT data (users, product_categories, products, purchase_history, supply_history)>
-<!ELEMENT users (field+)>
-<!ELEMENT product_categories (field+)>
-<!ELEMENT products (field+)>
-<!ELEMENT purchase_history (field+)>
-<!ELEMENT supply_history (field+)>
+<!ELEMENT tables (users, product_categories, products, purchase_history, supply_history)>
+<!ELEMENT users (user_id, username, password, user_role, created_at)>
+<!ELEMENT product_categories (category_id, category_name, seller_id)>
+<!ELEMENT products (product_id, seller_id, category_id, product_name, description, price, total_quantity, date_of_update)>
+<!ELEMENT purchase_history (purchase_id, client_id, product_id, quantity, price, total_price, purchase_date)>
+<!ELEMENT supply_history (supply_id, seller_id, product_id, quantity, supply_date)>
 
-<!ELEMENT field EMPTY>
-<!ATTLIST field name CDATA #REQUIRED
-                type CDATA #REQUIRED
-                settings CDATA #IMPLIED
-                reference CDATA #IMPLIED>
+<!ELEMENT user_id (#PCDATA)>
+<!ELEMENT username (#PCDATA)>
+<!ELEMENT password (#PCDATA)>
+<!ELEMENT user_role (#PCDATA)>
+<!ELEMENT created_at (#PCDATA)>
 
-<!ELEMENT relations (relation+)>
+<!ELEMENT category_id (#PCDATA)>
+<!ELEMENT category_name (#PCDATA)>
+<!ELEMENT seller_id (#PCDATA)>
+
+<!ELEMENT product_id (#PCDATA)>
+<!ELEMENT product_name (#PCDATA)>
+<!ELEMENT description (#PCDATA)>
+<!ELEMENT price (#PCDATA)>
+<!ELEMENT total_quantity (#PCDATA)>
+<!ELEMENT date_of_update (#PCDATA)>
+
+<!ELEMENT purchase_id (#PCDATA)>
+<!ELEMENT client_id (#PCDATA)>
+<!ELEMENT quantity (#PCDATA)>
+<!ELEMENT total_price (#PCDATA)>
+<!ELEMENT purchase_date (#PCDATA)>
+
+<!ELEMENT supply_id (#PCDATA)>
+<!ELEMENT supply_date (#PCDATA)>
+
+<!ELEMENT dependencies (relation*)>
 <!ELEMENT relation EMPTY>
-<!ATTLIST relation source CDATA #REQUIRED
-                    target CDATA #REQUIRED
-                    type (many_to_one | one_to_many | many_to_many) #REQUIRED>
+<!ATTLIST relation from CDATA #REQUIRED>
+<!ATTLIST relation to CDATA #REQUIRED>
+<!ATTLIST relation type CDATA #REQUIRED>
 
-<!ELEMENT user_roles (role+)>
+<!ELEMENT roles (role*)>
 <!ELEMENT role (responsibility)>
 <!ATTLIST role name CDATA #REQUIRED>
 <!ELEMENT responsibility (#PCDATA)>
@@ -32,5 +53,6 @@
 <!ELEMENT ui_api (interface)>
 <!ELEMENT interface (#PCDATA)>
 
+<!ELEMENT technology (programming_language, database)>
 <!ELEMENT programming_language (#PCDATA)>
 <!ELEMENT database (#PCDATA)>
