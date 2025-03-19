@@ -171,7 +171,7 @@ def get_products():
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Ошибка подключения к БД"}), 500
-
+    
     try:
         with conn.cursor() as cur:
             cur.execute("SELECT product_id, product_name, description, price, total_quantity FROM products WHERE total_quantity > 0")
@@ -187,6 +187,76 @@ def get_products():
         conn.close()
 
     return jsonify({"products": product_list})
+
+@app.route('/purchase_history', methods=['GET'])
+def purchase_history():
+    """ Получить историю покупок для клиента """
+    client_id = request.args.get("client_id", type=int)
+    if not client_id:
+        return jsonify({"error": "Не указан client_id"}), 400
+
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT purchase_id, product_id, quantity, price, total_price, purchase_date 
+                FROM purchase_history 
+                WHERE client_id = %s
+            """, (client_id,))
+            purchases = cur.fetchall()
+            purchase_list = [
+                {
+                    "purchase_id": row[0],
+                    "product_id": row[1],
+                    "quantity": row[2],
+                    "price": row[3],
+                    "total_price": row[4],
+                    "purchase_date": row[5].isoformat() if isinstance(row[5], datetime.date) else str(row[5])
+                }
+                for row in purchases
+            ]
+    except psycopg2.Error as e:
+        return jsonify({"error": f"Ошибка получения истории покупок: {e}"}), 500
+    finally:
+        conn.close()
+
+    return jsonify({"purchase_history": purchase_list} or [])
+
+
+@app.route('/supply_history', methods=['GET'])
+def supply_history():
+    """ Получить список поставок товаров """
+    conn = get_db_connection()
+    if not conn:
+        return jsonify({"error": "Ошибка подключения к БД"}), 500
+
+    seller_id = request.args.get("seller_id", type=int)
+    if not seller_id:
+        return jsonify({"error": "Не указан seller_id"}), 400
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT supply_id, product_id, quantity, supply_date FROM supply_history WHERE seller_id = %s", ((seller_id,)))
+            
+            supplies = cur.fetchall()
+            supply_list = [
+                {
+                    "supply_id": row[0],
+                    "product_id": row[1],
+                    "quantity": row[2],
+                    "supply_date": row[3].isoformat() if isinstance(row[3], datetime.date) else str(row[3])
+                }
+                for row in supplies
+            ]
+    except psycopg2.Error as e:
+        return jsonify({"error": f"Ошибка получения истории поставок: {e}"}), 500
+    finally:
+        conn.close()
+
+    return jsonify({"supply_history": supply_list} or [])
 
 @app.route('/update_product', methods=['PUT'])
 def update_product():
