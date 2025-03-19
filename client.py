@@ -156,6 +156,61 @@ def get_products():
         print("Ошибка при получении списка товаров:", response.json().get("error", "Неизвестная ошибка"))
         return None
 
+def view_purchase_history(client_id):
+    """ Вывод истории покупок для клиента """
+    response = requests.get(f"{API_URL}/purchase_history", params={"client_id": client_id})
+    if response.text:
+        try:
+            data = response.json()
+        except Exception as e:
+            print("Ошибка декодирования JSON:", e)
+            print("Сырой ответ:", response.text)
+            return
+        purchases = data.get("purchase_history", [])
+        if not purchases:
+            print("История покупок пуста.")
+        else:
+            print("\nИстория покупок:\n\tID покупки |\tID товара |\tКоличество |\tЦена |\tОбщая стоимость|\tДата покупки |")
+            for purchase in purchases:
+                print(
+                    f"{purchase['purchase_id']}| "
+                    f"{purchase['product_id']}| "
+                    f"{purchase['quantity']}| "
+                    f"{purchase['price']}| "
+                    f"{purchase['total_price']}| "
+                    f"{purchase['purchase_date']}"
+                )
+    else:
+        print("Пустой ответ от сервера при получении истории покупок.")
+
+
+
+def view_supply_history(seller_id):
+    response = requests.get(f"{API_URL}/supply_history", params={"seller_id": seller_id})
+    if response.text:
+        try:
+            data = response.json()
+        except Exception as e:
+            print("Ошибка декодирования JSON:", e)
+            print("Сырой ответ:", response.text)
+            return
+        supplies = data.get("supply_history", [])
+        if not supplies:
+            print("История поставок пуста.")
+        else:
+            print("\nИстория поставок:\n\tID поставки |\tID товара |\tКоличество |\tДата поставки |")
+            for supply in supplies:
+                print(
+                    f"{supply['supply_id']}| "
+                    f"{supply['product_id']}| "
+                    f"{supply['quantity']}| "
+                    f"{supply['supply_date']}"
+                )
+    else:
+        print("Пустой ответ от сервера при получении истории поставок.")
+
+
+
 def buy_product(client_id):
     """ Клиент покупает товар """
     products = get_products()
@@ -202,19 +257,27 @@ def main():
             print(f"Вы вошли как {user_role}.\n==========\n")
             if user_role == "client":
                 while True:
-                    print("\n1. Покупка\n2. Выход")
+                    print("\n1. Покупка\n2. История покупок\n3. Выход")
                     choice = input("Выберите действие: ")
 
                     if choice == "1":
                         buy_product(user_id)
                         get_products()
                     elif choice == "2":
+                        view_purchase_history(user_id)
+                    elif choice == "3":
                         break
                     else:
                         print("Некорректный ввод, попробуйте снова.")                 
-            else:
+            elif (user_role == "seller"):
                 while True:
-                    print("\n1. Обновление товара\n2. Поставка нового товара\n3. Новая категория товаров\n4. Вывести список категорий\n5. Выход")
+                    print("""
+                            \n1. Обновление товара
+                            \n2. Поставка нового товара
+                            \n3. Новая категория товаров
+                            \n4. Вывести список категорий
+                            \n5. Вывести список поставок
+                            \n6. Выход""")
                     choice = input("Выберите действие: ")
                     if choice == "1":
                         get_products()
@@ -229,9 +292,13 @@ def main():
                     elif choice == "4":
                         list_categories()    
                     elif choice == "5":
+                        view_supply_history(user_id)
+                    elif choice == "6":
                         break
                     else:
                         print("Некорректный ввод, попробуйте снова.")  
+            else:
+                print("Ошибка: Неизватсная роль: %s",(user_role))
             break
 
 if __name__ == "__main__":
