@@ -114,7 +114,9 @@ PostgreSQL
 
 ## Инструкция по запуску
 
-Для работы программы необходимо установить PostgreSQL (ссылка для скачивания - https://www.postgresql.org/download/) и DBeaver (ссылка для скачивания -https://dbeaver.io/download/)
+Для работы программы необходимо установить PostgreSQL (ссылка для скачивания - https://www.postgresql.org/download/)
+
+и DBeaver (ссылка для скачивания -https://dbeaver.io/download/)
 
 На PostgreSQL необходимо запустить сервер и подключиться к нему через DBeaver. Далее создать базу данных и назвать его 'postgres' 
 
