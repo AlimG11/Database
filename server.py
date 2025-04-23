@@ -1,379 +1,267 @@
 from flask import Flask, request, jsonify
-import psycopg2
-import datetime
+from flask_sqlalchemy import SQLAlchemy # type: ignore
+from flask_migrate import Migrate # type: ignore
+from flask_cors import CORS
+from sqlalchemy import func # type: ignore
+from datetime import date
+import uuid
 
 app = Flask(__name__)
+CORS(app)
 
-# Параметры подключения к PostgreSQL
-DB_NAME = 'postgres'
-DB_USER = 'postgres'
-DB_PASSWORD = 'admin'
-DB_HOST = 'localhost'
-DB_PORT = 5432
+# Настройки подключения
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:admin@localhost:5432/postgres'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-def get_db_connection():
-    """ Устанавливает соединение с базой данных """
-    try:
-        conn = psycopg2.connect(
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            host=DB_HOST,
-            port=DB_PORT
-        )
-        return conn
-    except Exception as e:
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+# Сессии
+sessions = {}
+
+# Модели
+class User(db.Model):
+    __tablename__ = 'users'
+    user_id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String, unique=True, nullable=False)
+    password = db.Column(db.String, nullable=False)
+    user_role = db.Column(db.String, nullable=False)  # 'client' или 'seller'
+    created_at = db.Column(db.Date, default=date.today)
+
+class ProductCategory(db.Model):
+    __tablename__ = 'product_categories'
+    category_id = db.Column(db.Integer, primary_key=True)
+    category_name = db.Column(db.String, nullable=False)
+
+class Product(db.Model):
+    __tablename__ = 'products'
+    product_id = db.Column(db.Integer, primary_key=True)
+    product_name = db.Column(db.String, nullable=False)
+    seller_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('product_categories.category_id'), nullable=False)
+    description = db.Column(db.String)
+    price = db.Column(db.Numeric, nullable=False)
+    total_quantity = db.Column(db.Integer, nullable=False)
+    date_of_update = db.Column(db.Date, default=date.today)
+
+class PurchaseHistory(db.Model):
+    __tablename__ = 'purchase_history'
+    purchase_id = db.Column(db.Integer, primary_key=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    price = db.Column(db.Numeric, nullable=False)
+    total_price = db.Column(db.Numeric, nullable=False)
+    purchase_date = db.Column(db.Date, default=date.today)
+
+class SupplyHistory(db.Model):
+    __tablename__ = 'supply_history'
+    supply_id = db.Column(db.Integer, primary_key=True)
+    seller_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.product_id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    supply_date = db.Column(db.Date, default=date.today)
+
+# Аутентификация
+
+def get_auth_token():
+    auth = request.headers.get('Authorization')
+    if not auth or not auth.startswith('Bearer '):
         return None
+    return auth[7:]
+
+def require_auth(expected_role=None):
+    token = get_auth_token()
+    if not token or token not in sessions:
+        return jsonify({"error": "Неавторизованный запрос"}), 401
+    user = sessions[token]
+    if expected_role and user.get("role") != expected_role:
+        return jsonify({"error": "Недостаточно прав"}), 403
+    return user
+
+# Маршруты
 
 @app.route('/register', methods=['POST'])
 def register():
-    """ Регистрация нового пользователя """
     data = request.json
-    username = data.get("username")
-    password = data.get("password")
-    user_role = data.get("user_role")
-
-    if not username or not password or user_role not in ['client', 'seller']:
-        return jsonify({"error": "Некорректные данные"}), 400
-    
-    created_at = datetime.date.today()
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO users (username, password, user_role, created_at)
-                VALUES (%s, %s, %s, %s)
-            """, (username, password, user_role, created_at))
-        conn.commit()
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({"error": f"Ошибка регистрации: {e}"}), 500
-    finally:
-        conn.close()
-    
+    user = User(username=data['username'], password=data['password'], user_role=data['user_role'])
+    db.session.add(user)
+    db.session.commit()
     return jsonify({"message": "Регистрация прошла успешно."})
-
-@app.route('/categories', methods=['GET'])
-def get_categories():
-    """ Получить список категорий товаров """
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT category_id, category_name FROM product_categories")
-            categories = cur.fetchall()
-            category_list = [{"id": row[0], "name": row[1]} for row in categories]
-    except psycopg2.Error as e:
-        return jsonify({"error": f"Ошибка получения категорий: {e}"}), 500
-    finally:
-        conn.close()
-    return jsonify({"categories": category_list})
-
-
-@app.route('/add_category', methods=['POST'])
-def add_category():
-    """ Добавление новой категории товаров """
-    data = request.json
-    category_name = data.get("category_name")
-    
-    if not category_name:
-        return jsonify({"error": "Не указано название категории"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO product_categories (category_name)
-                VALUES (%s) RETURNING category_id
-            """, (category_name,))
-            new_category_id = cur.fetchone()[0]
-        conn.commit()
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({"error": f"Ошибка добавления категории: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"message": "Категория успешно добавлена.", "category_id": new_category_id})
-
-
-@app.route('/supply', methods=['POST'])
-def supply():
-    """ Поставка товара от продавца """
-    data = request.json
-    # Флаг, определяющий новый товар или существующий
-    is_new = data.get("is_new", False)
-    seller_id = data.get("seller_id")
-    supply_date = datetime.date.today()
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            if not is_new:
-                # Поставка существующего товара:
-                product_id = data.get("product_id")
-                quantity = data.get("quantity")
-                if not product_id or not quantity:
-                    return jsonify({"error": "Для поставки существующего товара необходимо указать product_id и quantity"}), 400
-
-                # Обновляем количество товара (увеличиваем общее количество)
-                cur.execute("UPDATE products SET total_quantity = total_quantity + %s WHERE product_id = %s", (quantity, product_id))
-                # Записываем поставку в историю
-                cur.execute("""
-                    INSERT INTO supply_history (seller_id, product_id, quantity, supply_date)
-                    VALUES (%s, %s, %s, %s)
-                """, (seller_id, product_id, quantity, supply_date))
-            else:
-                # Поставка нового товара:
-                name = data.get("product_name")
-                seller_id = data.get("seller_id")
-                category_id = data.get("category_id")
-                description = data.get("description")
-                price = data.get("price")
-                quantity = data.get("quantity")
-                if not name or not category_id or price is None or not quantity:
-                    return jsonify({"error": "Для нового товара обязательно укажите product_name, category_id, price и quantity (description - опционально)"}), 400
-
-                # Вставляем новый товар и возвращаем его product_id
-                cur.execute("""
-                    INSERT INTO products (product_name, seller_id, category_id, description, price, total_quantity)
-                    VALUES (%s, %s, %s, %s, %s, %s) RETURNING product_id
-                """, (name, seller_id, category_id, description, price, quantity))
-                new_product_id = cur.fetchone()[0]
-                # Записываем поставку в историю
-                cur.execute("""
-                    INSERT INTO supply_history (seller_id, product_id, quantity, supply_date)
-                    VALUES (%s, %s, %s, %s)
-                """, (seller_id, new_product_id, quantity, supply_date))
-        conn.commit()
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({"error": f"Ошибка поставки товара: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"message": "Поставка товара успешно выполнена."})
-
-
-@app.route('/products', methods=['GET'])
-def get_products():
-    """ Получить список доступных товаров """
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT product_id, product_name, description, price, total_quantity FROM products WHERE total_quantity > 0")
-            products = cur.fetchall()
-
-        product_list = [
-            {"id": row[0], "name": row[1],"description": row[2], "price": row[3], "quantity": row[4]}
-            for row in products
-        ]
-    except psycopg2.Error as e:
-        return jsonify({"error": f"Ошибка получения списка товаров: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"products": product_list})
-
-@app.route('/purchase_history', methods=['GET'])
-def purchase_history():
-    """ Получить историю покупок для клиента """
-    client_id = request.args.get("client_id", type=int)
-    if not client_id:
-        return jsonify({"error": "Не указан client_id"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT purchase_id, product_id, quantity, price, total_price, purchase_date 
-                FROM purchase_history 
-                WHERE client_id = %s
-            """, (client_id,))
-            purchases = cur.fetchall()
-            purchase_list = [
-                {
-                    "purchase_id": row[0],
-                    "product_id": row[1],
-                    "quantity": row[2],
-                    "price": row[3],
-                    "total_price": row[4],
-                    "purchase_date": row[5].isoformat() if isinstance(row[5], datetime.date) else str(row[5])
-                }
-                for row in purchases
-            ]
-    except psycopg2.Error as e:
-        return jsonify({"error": f"Ошибка получения истории покупок: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"purchase_history": purchase_list} or [])
-
-
-@app.route('/supply_history', methods=['GET'])
-def supply_history():
-    """ Получить список поставок товаров """
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    seller_id = request.args.get("seller_id", type=int)
-    if not seller_id:
-        return jsonify({"error": "Не указан seller_id"}), 400
-    
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT supply_id, product_id, quantity, supply_date FROM supply_history WHERE seller_id = %s", ((seller_id,)))
-            
-            supplies = cur.fetchall()
-            supply_list = [
-                {
-                    "supply_id": row[0],
-                    "product_id": row[1],
-                    "quantity": row[2],
-                    "supply_date": row[3].isoformat() if isinstance(row[3], datetime.date) else str(row[3])
-                }
-                for row in supplies
-            ]
-    except psycopg2.Error as e:
-        return jsonify({"error": f"Ошибка получения истории поставок: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"supply_history": supply_list} or [])
-
-@app.route('/update_product', methods=['PUT'])
-def update_product():
-    """ Обновление информации о товаре для продавцов """
-    data = request.json
-    product_id = data.get("product_id")
-    if not product_id:
-        return jsonify({"error": "Не указан ID товара"}), 400
-
-    # Подготовка списка обновляемых полей и значений
-    fields = []
-    values = []
-    if "product_name" in data:
-        fields.append("product_name = %s")
-        values.append(data["product_name"])
-    if "price" in data:
-        fields.append("price = %s")
-        values.append(data["price"])
-    if "description" in data:
-        fields.append("description = %s")
-        values.append(data["description"])
-
-    if not fields:
-        return jsonify({"error": "Нет данных для обновления"}), 400
-
-    # Добавляем product_id в конец списка значений для условия WHERE
-    values.append(product_id)
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            query = f"UPDATE products SET {', '.join(fields)} WHERE product_id = %s"
-            cur.execute(query, tuple(values))
-        conn.commit()
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({"error": f"Ошибка обновления товара: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"message": "Товар успешно обновлен."})
-
-
-@app.route('/buy', methods=['POST'])
-def buy_product():
-    """ Клиент покупает товар """
-    data = request.json
-    client_id = data.get("client_id")
-    product_id = data.get("product_id")
-    quantity = data.get("quantity")
-
-    if not client_id or not product_id or not quantity:
-        return jsonify({"error": "Некорректные данные"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT price, total_quantity FROM products WHERE product_id = %s", (product_id,))
-            product = cur.fetchone()
-            if not product or product[1] < quantity:
-                return jsonify({"error": "Недостаточно товара"}), 400
-
-            total_price = product[0] * quantity
-
-            cur.execute("""
-                INSERT INTO purchase_history (client_id, product_id, quantity, price, total_price, purchase_date)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            """, (client_id, product_id, quantity, product[0], total_price, datetime.date.today()))
-
-            cur.execute("UPDATE products SET total_quantity = total_quantity - %s WHERE product_id = %s",
-                        (quantity, product_id))
-
-        conn.commit()
-    except psycopg2.Error as e:
-        conn.rollback()
-        return jsonify({"error": f"Ошибка покупки: {e}"}), 500
-    finally:
-        conn.close()
-
-    return jsonify({"message": "Покупка совершена успешно."})
 
 @app.route('/login', methods=['POST'])
 def login():
-    """ Авторизация пользователя """
     data = request.json
-    username = data.get("username")
-    password = data.get("password")
-
-    if not username or not password:
-        return jsonify({"error": "Некорректные данные"}), 400
-
-    conn = get_db_connection()
-    if not conn:
-        return jsonify({"error": "Ошибка подключения к БД"}), 500
-
-    try:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT user_id, user_role FROM users
-                WHERE username = %s AND password = %s
-            """, (username, password))
-            user = cur.fetchone()
-    except psycopg2.Error as e:
-        return jsonify({"error": f"Ошибка входа: {e}"}), 500
-    finally:
-        conn.close()
-
+    user = User.query.filter_by(username=data['username'], password=data['password']).first()
     if not user:
         return jsonify({"error": "Неверное имя пользователя или пароль."}), 401
+    token = str(uuid.uuid4())
+    sessions[token] = {"user_id": user.user_id, "role": user.user_role}
+    return jsonify({"message": "Успешный вход", "user_id": user.user_id, "user_role": user.user_role, "token": token})
 
-    return jsonify({"message": "Успешный вход", "user_id": user[0], "user_role": user[1]})
+@app.route('/categories', methods=['GET'])
+def get_categories():
+    categories = ProductCategory.query.all()
+    return jsonify({"categories": [{"id": c.category_id, "name": c.category_name} for c in categories]})
+
+@app.route('/add_category', methods=['POST'])
+def add_category():
+    auth = require_auth("seller")
+    if isinstance(auth, tuple): return auth
+    data = request.json
+    category = ProductCategory(category_name=data['category_name'])
+    db.session.add(category)
+    db.session.commit()
+    return jsonify({"message": "Категория успешно добавлена.", "category_id": category.category_id})
+
+@app.route('/products', methods=['GET'])
+def get_products():
+    products = Product.query.filter(Product.total_quantity > 0).all()
+    return jsonify({"products": [{
+        "id": p.product_id,
+        "name": p.product_name,
+        "description": p.description,
+        "price": float(p.price),
+        "quantity": p.total_quantity,
+        "date_of_update": p.date_of_update.isoformat()
+    } for p in products]})
+
+@app.route('/buy', methods=['POST'])
+def buy():
+    auth = require_auth("client")
+    if isinstance(auth, tuple): return auth
+    data = request.json
+    product = Product.query.get(data['product_id'])
+    if not product or product.total_quantity < data['quantity']:
+        return jsonify({"error": "Недостаточно товара"}), 400
+    purchase = PurchaseHistory(
+        client_id=data['client_id'],
+        product_id=data['product_id'],
+        quantity=data['quantity'],
+        price=product.price,
+        total_price=product.price * data['quantity']
+    )
+    product.total_quantity -= data['quantity']
+    db.session.add(purchase)
+    db.session.commit()
+    return jsonify({"message": "Покупка совершена успешно."})
+
+@app.route('/purchase_history', methods=['GET'])
+def get_purchase_history():
+    auth = require_auth("client")
+    if isinstance(auth, tuple): return auth
+    client_id = request.args.get("client_id", type=int)
+    if client_id != auth["user_id"]:
+        return jsonify({"error": "Неверный client_id"}), 403
+    purchases = PurchaseHistory.query.filter_by(client_id=client_id).all()
+    return jsonify({"purchase_history": [{
+        "purchase_id": p.purchase_id,
+        "product_id": p.product_id,
+        "quantity": p.quantity,
+        "price": float(p.price),
+        "total_price": float(p.total_price),
+        "purchase_date": p.purchase_date.isoformat()
+    } for p in purchases]})
+
+@app.route('/supply', methods=['POST'])
+def supply():
+    auth = require_auth("seller")
+    if isinstance(auth, tuple): return auth
+    data = request.json
+    if data.get("is_new"):
+        product = Product(
+            product_name=data['product_name'],
+            seller_id=auth['user_id'],
+            category_id=data['category_id'],
+            description=data.get('description'),
+            price=data['price'],
+            total_quantity=data['quantity']
+        )
+        db.session.add(product)
+        db.session.flush()
+    else:
+        product = Product.query.get(data['product_id'])
+        if not product:
+            return jsonify({"error": "Товар не найден"}), 404
+        product.total_quantity += data['quantity']
+    supply = SupplyHistory(
+        seller_id=auth['user_id'],
+        product_id=product.product_id,
+        quantity=data['quantity']
+    )
+    db.session.add(supply)
+    db.session.commit()
+    return jsonify({"message": "Поставка товара успешно выполнена."})
+
+@app.route('/supply_history', methods=['GET'])
+def supply_history():
+    auth = require_auth("seller")
+    if isinstance(auth, tuple): return auth
+    seller_id = request.args.get("seller_id", type=int)
+    if seller_id != auth['user_id']:
+        return jsonify({"error": "Неверный seller_id"}), 403
+    history = SupplyHistory.query.filter_by(seller_id=seller_id).all()
+    return jsonify({"supply_history": [{
+        "supply_id": h.supply_id,
+        "product_id": h.product_id,
+        "quantity": h.quantity,
+        "supply_date": h.supply_date.isoformat()
+    } for h in history]})
+
+@app.route('/update_product', methods=['PUT'])
+def update_product():
+    auth = require_auth("seller")
+    if isinstance(auth, tuple):
+        return auth
+    data = request.json or {}
+    product_id = data.get('product_id')
+    if not product_id:
+        return jsonify({"error": "Не указан ID товара"}), 400
+
+    product = Product.query.get(product_id)
+    if not product:
+        return jsonify({"error": "Товар не найден"}), 404
+
+    # Новая проверка: только владелец (seller_id) может редактировать
+    if product.seller_id != auth['user_id']:
+        return jsonify({"error": "Нет прав на изменение этого товара"}), 403
+
+    # Применяем изменения
+    if 'product_name' in data:
+        product.product_name = data['product_name']
+    if 'price' in data:
+        product.price = data['price']
+    if 'description' in data:
+        product.description = data['description']
+
+    db.session.commit()
+    return jsonify({"message": "Товар успешно обновлён."})
+
+
+@app.route('/seller_products_revenue', methods=['GET'])
+def seller_products_revenue():
+    auth = require_auth("seller")
+    if isinstance(auth, tuple): return auth
+    seller_id = auth['user_id']
+    query = db.session.query(
+        Product,
+        func.coalesce(func.sum(PurchaseHistory.total_price), 0).label("revenue")
+    ).outerjoin(PurchaseHistory, Product.product_id == PurchaseHistory.product_id) \
+    .filter(Product.seller_id == seller_id) \
+    .group_by(Product.product_id)
+
+    result = [
+        {
+            "id": p.product_id,
+            "name": p.product_name,
+            "description": p.description,
+            "price": float(p.price),
+            "quantity": p.total_quantity,
+            "revenue": float(rev)
+        }
+        for p, rev in query.all()
+    ]
+    return jsonify({"products": result})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
