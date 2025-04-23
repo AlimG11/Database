@@ -1,305 +1,629 @@
-import requests
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Клиентское приложение</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    input, select, button { margin: 5px 0; display: block; }
+    button { cursor: pointer; }
+    .container { margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>Клиентское приложение</h1>
+  <!-- Блок авторизации -->
+  <div id="auth" class="container">
+    <button onclick="showRegister()">Регистрация</button>
+    <button onclick="showLogin()">Вход</button>
+  </div>
+  
+  <!-- Блок для вывода содержимого (форм, меню, результатов) -->
+  <div id="content" class="container"></div>
+  
+  <script>
+    const API_URL = "http://127.0.0.1:5000";
+    let userData = null; // После авторизации будет содержать user_id, user_role и token
 
-API_URL = "http://127.0.0.1:5000"
-
-def register():
-    """ Регистрация нового пользователя """
-    username = input("Введите имя пользователя: ")
-    password = input("Введите пароль: ")
-    user_role = input("Введите роль (client/seller): ")
-
-    data = {
-        "username": username,
-        "password": password,
-        "user_role": user_role
+    // Функция для отображения формы регистрации
+    function showRegister() {
+      document.getElementById("content").innerHTML = `
+        <h3>Регистрация</h3>
+        <form id="registerForm">
+          <input type="text" id="regUsername" placeholder="Имя пользователя" required />
+          <input type="password" id="regPassword" placeholder="Пароль" required />
+          <select id="regRole">
+            <option value="client">Клиент</option>
+            <option value="seller">Продавец</option>
+          </select>
+          <button type="submit">Зарегистрироваться</button>
+        </form>
+        <div id="registerResult"></div>
+        <button onclick="clearContent()">Назад</button>
+      `;
+      document.getElementById("registerForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const username = document.getElementById("regUsername").value;
+        const password = document.getElementById("regPassword").value;
+        const user_role = document.getElementById("regRole").value;
+        fetch(API_URL + "/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, user_role })
+        })
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("registerResult").innerText = JSON.stringify(data);
+        })
+        .catch(err => console.error(err));
+      });
     }
 
-    response = requests.post(f"{API_URL}/register", json=data)
-    print(response.json())
-
-def login():
-    """ Вход пользователя """
-    username = input("Введите имя пользователя: ")
-    password = input("Введите пароль: ")
-
-    data = {
-        "username": username,
-        "password": password
+    // Функция для отображения формы входа
+    function showLogin() {
+      document.getElementById("content").innerHTML = `
+        <h3>Вход</h3>
+        <form id="loginForm">
+          <input type="text" id="loginUsername" placeholder="Имя пользователя" required />
+          <input type="password" id="loginPassword" placeholder="Пароль" required />
+          <button type="submit">Войти</button>
+        </form>
+        <div id="loginResult"></div>
+        <button onclick="clearContent()">Назад</button>
+      `;
+      document.getElementById("loginForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const username = document.getElementById("loginUsername").value;
+        const password = document.getElementById("loginPassword").value;
+        fetch(API_URL + "/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("loginResult").innerText = JSON.stringify(data);
+          if (data.user_id && data.token) {
+            userData = data;
+            showUserMenu();
+          }
+        })
+        .catch(err => console.error(err));
+      });
     }
 
-    response = requests.post(f"{API_URL}/login", json=data)
-    print(response.json())
-    if response.status_code == 200:
-        user_data = response.json()
-        return user_data
-    else:
-        print(response.json().get("error", "Ошибка авторизации"))
-        return None
-
-def update_product():
-    """ Обновление информации о товаре для продавцов """
-    product_id = input("Введите ID товара для обновления: ")
-
-    print("Выберите параметр для обновления:")
-    print("1. Название")
-    print("2. Цена")
-    print("3. Описание")
-    choice = input("Ваш выбор: ")
-
-    data = {"product_id": int(product_id)}
-    if choice == "1":
-        new_name = input("Введите новое название: ")
-        data["product_name"] = new_name
-    elif choice == "2":
-        try:
-            new_price = float(input("Введите новую цену: "))
-            data["price"] = new_price
-        except ValueError:
-            print("Некорректная цена.")
-            return
-    elif choice == "3":
-        new_description = input("Введите новое описание: ")
-        data["description"] = new_description
-    else:
-        print("Некорректный выбор.")
-        return
-
-    response = requests.put(f"{API_URL}/update_product", json=data)
-    print(response.json())
-
-def add_category():
-    """ Добавление новой категории товаров """
-    category_name = input("Введите название новой категории: ")
-    data = {"category_name": category_name}
-    response = requests.post(f"{API_URL}/add_category", json=data)
-    print(response.json())
-
-def list_categories():
-    """ Вывод списка доступных категорий """
-    response = requests.get(f"{API_URL}/categories")
-    if response.status_code == 200:
-        categories = response.json().get("categories", [])
-        if not categories:
-            print("Нет доступных категорий.")
-        else:
-            print("\nДоступные категории:")
-            for category in categories:
-                print(f"ID: {category['id']}, Название: {category['name']}")
-    else:
-        print("Ошибка при получении списка категорий:", response.json().get("error", "Неизвестная ошибка"))
-
-def supply_product(seller_id):
-    """ Поставка товара от продавца """
-    print("Выберите тип поставки:")
-    print("1. Поставка уже существующего товара")
-    print("2. Поставка нового товара")
-    choice = input("Ваш выбор: ")
-
-    data = {"seller_id": seller_id}
-    if choice == "1":
-        product_id = input("Введите ID товара: ")
-        quantity = input("Введите количество для поставки: ")
-        data["is_new"] = False
-        data["product_id"] = int(product_id)
-        data["quantity"] = int(quantity)
-    elif choice == "2":
-        # Получаем список категорий
-        response = requests.get(f"{API_URL}/categories")
-        if response.status_code == 200:
-            categories = response.json().get("categories", [])
-            if not categories:
-                print("Нет доступных категорий.")
-                return
-            print("\nДоступные категории:")
-            for category in categories:
-                print(f"ID: {category['id']}, Название: {category['name']}")
-        else:
-            print("Ошибка при получении категорий.")
-            return
-        name = input("Введите название нового товара: ")
-        category_id = input("Введите ID категории: ")
-        description = input("Введите описание товара: ")
-        price = input("Введите цену товара: ")
-        quantity = input("Введите количество для поставки: ")
-        data["is_new"] = True
-        data["product_name"] = name
-        data["category_id"] = int(category_id)
-        data["description"] = description
-        try:
-            data["price"] = float(price)
-        except ValueError:
-            print("Некорректная цена.")
-            return
-        data["quantity"] = int(quantity)
-    else:
-        print("Некорректный выбор.")
-        return
-
-    response = requests.post(f"{API_URL}/supply", json=data)
-    print(response.json())
-
-
-def get_products():
-    """ Получить список доступных товаров """
-    response = requests.get(f"{API_URL}/products")
-    if response.status_code == 200:
-        products = response.json().get("products", [])
-        if not products:
-            print("Нет доступных товаров.")
-            return None
-
-        print("\nДоступные товары:")
-        for product in products:
-            print(f"ID: {product['id']}, Название: {product['name']}, Описание: {product['description']}, Цена: {product['price']}, Количество: {product['quantity']}")
-        return products
-    else:
-        print("Ошибка при получении списка товаров:", response.json().get("error", "Неизвестная ошибка"))
-        return None
-
-def view_purchase_history(client_id):
-    """ Вывод истории покупок для клиента """
-    response = requests.get(f"{API_URL}/purchase_history", params={"client_id": client_id})
-    if response.text:
-        try:
-            data = response.json()
-        except Exception as e:
-            print("Ошибка декодирования JSON:", e)
-            print("Сырой ответ:", response.text)
-            return
-        purchases = data.get("purchase_history", [])
-        if not purchases:
-            print("История покупок пуста.")
-        else:
-            print("\nИстория покупок:\n\tID покупки |\tID товара |\tКоличество |\tЦена |\tОбщая стоимость|\tДата покупки |")
-            for purchase in purchases:
-                print(
-                    f"{purchase['purchase_id']}| "
-                    f"{purchase['product_id']}| "
-                    f"{purchase['quantity']}| "
-                    f"{purchase['price']}| "
-                    f"{purchase['total_price']}| "
-                    f"{purchase['purchase_date']}"
-                )
-    else:
-        print("Пустой ответ от сервера при получении истории покупок.")
-
-
-
-def view_supply_history(seller_id):
-    response = requests.get(f"{API_URL}/supply_history", params={"seller_id": seller_id})
-    if response.text:
-        try:
-            data = response.json()
-        except Exception as e:
-            print("Ошибка декодирования JSON:", e)
-            print("Сырой ответ:", response.text)
-            return
-        supplies = data.get("supply_history", [])
-        if not supplies:
-            print("История поставок пуста.")
-        else:
-            print("\nИстория поставок:\n\tID поставки |\tID товара |\tКоличество |\tДата поставки |")
-            for supply in supplies:
-                print(
-                    f"{supply['supply_id']}| "
-                    f"{supply['product_id']}| "
-                    f"{supply['quantity']}| "
-                    f"{supply['supply_date']}"
-                )
-    else:
-        print("Пустой ответ от сервера при получении истории поставок.")
-
-
-
-def buy_product(client_id):
-    """ Клиент покупает товар """
-    products = get_products()
-    if not products:
-        return
-
-    product_id = input("Введите ID товара для покупки: ")
-    quantity = input("Введите количество: ")
-
-    data = {
-        "client_id": client_id,
-        "product_id": int(product_id),
-        "quantity": int(quantity)
+    // Отображение меню в зависимости от роли
+    function showUserMenu() {
+      let html = "";
+      if (userData.user_role === "client") {
+        html = `
+          <h3>Меню клиента</h3>
+          <button onclick="listProducts()">Список товаров</button>
+          <button onclick="buyProduct()">Покупка товара</button>
+          <button onclick="viewPurchaseHistory()">История покупок</button>
+          <button onclick="logout()">Выход</button>
+          <div id="resultArea"></div>
+        `;
+      } else if (userData.user_role === "seller") {
+        html = `
+          <h3>Меню продавца</h3>
+          <button onclick="listProducts()">Список товаров</button>
+          <button onclick="viewSellerProducts()">Мои товары</button>
+          <button onclick="updateProduct()">Обновление товара</button>
+          <button onclick="supplyProduct()">Поставка товара</button>
+          <button onclick="addCategory()">Новая категория товаров</button>
+          <button onclick="listCategories()">Список категорий</button>
+          <button onclick="viewSupplyHistory()">История поставок</button>
+          <button onclick="logout()">Выход</button>
+          <div id="resultArea"></div>
+        `;
+      }
+      document.getElementById("content").innerHTML = html;
     }
 
-    response = requests.post(f"{API_URL}/buy", json=data)
-    print(response.json())
+    function logout() {
+      userData = null;
+      clearContent();
+    }
 
+    function clearContent() {
+      document.getElementById("content").innerHTML = "";
+    }
 
-def main():
-    """ Основное меню клиента """
-    user_data = None
-    user_role = None
-    user_id = None
-    while True:
-        if user_role is None:
-            print("\n1. Регистрация\n2. Вход\n3. Выход")
-            choice = input("Выберите действие: ")
+    function formatDate(dateString) {
+      let date = new Date(dateString);
+      if (isNaN(date)) return "—";
+      let day = date.getDate().toString().padStart(2, "0");
+      const monthNames = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
+      let month = monthNames[date.getMonth()];
+      let year = date.getFullYear();
+      return `${day} ${month} ${year}`;
+    }
 
-            if choice == "1":
-                register()
-            elif choice == "2":
-                user_data = login()
-                user_role = user_data.get("user_role")
-                user_id = user_data.get("user_id")
-            elif choice == "3":
-                print("Выход из программы.")
-                break
-            else:
-                print("Некорректный ввод, попробуйте снова.")
-        else:
-            user_role = user_data.get("user_role")
-            user_id = user_data.get("user_id")
-            print(f"Вы вошли как {user_role}.\n==========\n")
-            if user_role == "client":
-                while True:
-                    print("\n1. Покупка\n2. История покупок\n3. Выход")
-                    choice = input("Выберите действие: ")
+    // Генерация таблицы истории покупок
+    function generatePurchaseHistoryTable(history) {
+      let html = '<table><thead><tr><th>№ покупки</th><th>ID товара</th><th>Кол-во</th><th>Цена</th><th>Итого</th><th>Дата</th></tr></thead><tbody>';
+      history.forEach(item => {
+        html += `<tr><td>${item.purchase_id}</td><td>${item.product_id}</td><td>${item.quantity}</td><td>${item.price}</td><td>${item.total_price}</td><td>${item.purchase_date?formatDate(item.purchase_date):'—'}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      return html;
+    }
+    
+    function viewPurchaseHistory() {
+      document.getElementById('content').innerHTML = `<h3>История покупок</h3><button onclick="fetchPurchaseHistory()">Показать</button><div id="purchaseHistoryResult"></div><button onclick="showUserMenu()">Назад</button>`;
+    }
+    function fetchPurchaseHistory() {
+      fetch(API_URL+`/purchase_history?client_id=${userData.user_id}`,{headers:{'Authorization':'Bearer '+userData.token}})
+        .then(r=>r.json())
+        .then(data=>{
+          const hist = data.purchase_history||[];
+          document.getElementById('purchaseHistoryResult').innerHTML = generatePurchaseHistoryTable(hist);
+        });
+    }
 
-                    if choice == "1":
-                        buy_product(user_id)
-                        get_products()
-                    elif choice == "2":
-                        view_purchase_history(user_id)
-                    elif choice == "3":
-                        break
-                    else:
-                        print("Некорректный ввод, попробуйте снова.")                 
-            elif (user_role == "seller"):
-                while True:
-                    print("""
-                            \n1. Обновление товара
-                            \n2. Поставка нового товара
-                            \n3. Новая категория товаров
-                            \n4. Вывести список категорий
-                            \n5. Вывести список поставок
-                            \n6. Выход""")
-                    choice = input("Выберите действие: ")
-                    if choice == "1":
-                        get_products()
-                        update_product()
-                        get_products()
-                    elif choice == "2":
-                        get_products()
-                        supply_product(user_id)
-                        get_products()
-                    elif choice == "3":
-                        add_category()
-                    elif choice == "4":
-                        list_categories()    
-                    elif choice == "5":
-                        view_supply_history(user_id)
-                    elif choice == "6":
-                        break
-                    else:
-                        print("Некорректный ввод, попробуйте снова.")  
-            else:
-                print("Ошибка: Неизватсная роль: %s",(user_role))
-            break
+    // Функции для продавца: показать и загрузить его товары с доходом
+    function viewSellerProducts() {
+      document.getElementById('content').innerHTML = `
+        <h3>Мои товары</h3>
+        <button onclick="fetchSellerProducts()">Показать мои товары</button>
+        <div id="sellerProductsResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+    }
 
-if __name__ == "__main__":
-    main()
+    function fetchSellerProducts() {
+      fetch(API_URL + "/seller_products_revenue", {
+        headers: { 'Authorization': 'Bearer ' + userData.token }
+      })
+      .then(res => res.json())
+      .then(data => {
+        const prods = data.products || [];
+        let html = `<table>
+          <thead>
+            <tr><th>ID</th><th>Название</th><th>Описание</th><th>Цена</th><th>Кол-во</th><th>Заработано</th></tr>
+          </thead>
+          <tbody>`;
+        let total = 0;
+        prods.forEach(p => {
+          html += `<tr>
+            <td>${p.id}</td>
+            <td>${p.name}</td>
+            <td>${p.description}</td>
+            <td>${p.price}</td>
+            <td>${p.quantity}</td>
+            <td>${p.revenue}</td>
+          </tr>`;
+          total += p.revenue;
+        });
+        html += `</tbody></table>`;
+        html += `<p><strong>Общий доход: ${total}</strong></p>`;
+        document.getElementById('sellerProductsResult').innerHTML = html;
+      })
+      .catch(err => console.error(err));
+    }
+
+    // Функция вывода списка товаров в виде таблицы
+    function listProducts() {
+      document.getElementById("content").innerHTML = `
+        <h3>Список товаров</h3>
+        <label for="sortCriteria">Сортировать по:</label>
+        <select id="sortCriteria">
+          <option value="id">ID</option>
+          <option value="price">Цене</option>
+          <option value="name">Названию</option>
+          <option value="quantity">Количеству</option>
+          <option value="date_of_update">Дате обновления</option>
+        </select>
+        <button onclick="fetchProducts()">Показать товары</button>
+        <div id="productsResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+    }
+
+    // Функция получения товаров и их сортировки
+    function fetchProducts() {
+      fetch(API_URL + "/products")
+      .then(res => res.json())
+      .then(data => {
+        let products = data.products || [];
+        const sortCriteria = document.getElementById("sortCriteria").value;
+        // Сортировка товаров на стороне клиента
+        products.sort((a, b) => {
+          if (sortCriteria === "id") {
+            return a.id - b.id;
+          } else if (sortCriteria === "price") {
+            return a.price - b.price;
+          } else if (sortCriteria === "name") {
+            return a.name.localeCompare(b.name);
+          } else if (sortCriteria === "date_of_update") {
+            // Предполагаем, что поля date_of_update присутствуют и содержат дату в формате, понятном Date
+            let dateA = new Date(a.date_of_update);
+            let dateB = new Date(b.date_of_update);
+            // Если дата не определена, возвращаем 0, чтобы не менять порядок
+            if (isNaN(dateA)) dateA = new Date(0);
+            if (isNaN(dateB)) dateB = new Date(0);
+            return dateA - dateB;
+          } else if (sortCriteria === "quantity") {
+            return a.quantity - b.quantity;
+          }
+          return 0;
+        });
+        displayProductsTable(products);
+      })
+      .catch(err => console.error(err));
+    }
+
+    // Функция отображения товаров в виде таблицы
+    function displayProductsTable(products) {
+    let html = `<table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Название</th>
+                      <th>Описание</th>
+                      <th>Цена</th>
+                      <th>Количество</th>
+                      <th>Дата обновления</th>
+                    </tr>
+                  </thead>
+                  <tbody>`;
+    products.forEach(prod => {
+      // Если поле date_of_update существует, форматируем его, иначе выводим дефис.
+      let date_of_update = prod.date_of_update ? formatDate(prod.date_of_update) : "—";
+      html += `<tr>
+                <td>${prod.id}</td>
+                <td>${prod.name}</td>
+                <td>${prod.description}</td>
+                <td>${prod.price}</td>
+                <td>${prod.quantity}</td>
+                <td>${date_of_update}</td>
+              </tr>`;
+    });
+    html += `</tbody></table>`;
+    document.getElementById("productsResult").innerHTML = html;
+  }
+
+  // Функция для генерации HTML-кода таблицы товаров
+  function generateProductsTable(products) {
+    let html = `<table>
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Название</th>
+                      <th>Описание</th>
+                      <th>Цена</th>
+                      <th>Количество</th>
+                      <th>Дата обновления</th>
+                    </tr>
+                  </thead>
+                  <tbody>`;
+    products.forEach(prod => {
+      let date_of_update = prod.date_of_update ? formatDate(prod.date_of_update) : "—";
+      html += `<tr>
+                 <td>${prod.id}</td>
+                 <td>${prod.name}</td>
+                 <td>${prod.description}</td>
+                 <td>${prod.price}</td>
+                 <td>${prod.quantity}</td>
+                 <td>${date_of_update}</td>
+               </tr>`;
+    });
+    html += `</tbody></table>`;
+    return html;
+  }
+
+    // Функция для отображения таблицы товаров и формы покупки (для клиента)
+    function buyProduct() {
+      fetch(API_URL + "/products")
+        .then(res => res.json())
+        .then(data => {
+          let products = data.products || [];
+          let html = `<h3>Список товаров</h3>`;
+          html += generateProductsTable(products);
+          html += `<button onclick="showBuyForm()">Купить товар</button>`;
+          html += `<button onclick="showUserMenu()">Назад</button>`;
+          document.getElementById("content").innerHTML = html;
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Функции для просмотра истории покупок (для клиента)
+    function viewPurchaseHistory() {
+      document.getElementById("content").innerHTML = `
+        <h3>История покупок</h3>
+        <button onclick="fetchPurchaseHistory()">Показать историю покупок</button>
+        <div id="purchaseHistoryResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+    }
+    function fetchPurchaseHistory() {
+      fetch(API_URL + "/purchase_history?client_id=" + userData.user_id, {
+        headers: {
+          "Authorization": "Bearer " + userData.token
+        }
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("purchaseHistoryResult").innerText = JSON.stringify(data);
+      })
+      .catch(err => console.error(err));
+    }
+
+  // Функция для отображения формы покупки товара (под таблицей)
+  function showBuyForm() {
+    let html = `
+      <h3>Покупка товара</h3>
+      <form id="buyForm">
+        <input type="number" id="buyProductId" placeholder="ID товара" required />
+        <input type="number" id="buyQuantity" placeholder="Количество" required />
+        <button type="submit">Купить</button>
+      </form>
+      <div id="buyResult"></div>
+      <button onclick="showUserMenu()">Назад</button>
+    `;
+    // Добавляем форму под таблицей
+    document.getElementById("content").innerHTML += html;
+    document.getElementById("buyForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const product_id = parseInt(document.getElementById("buyProductId").value);
+      const quantity = parseInt(document.getElementById("buyQuantity").value);
+      fetch(API_URL + "/buy", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + userData.token
+        },
+        body: JSON.stringify({ client_id: userData.user_id, product_id, quantity })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("buyResult").innerText = JSON.stringify(data);
+      })
+      .catch(err => console.error(err));
+    });
+  }
+
+    // Функция обновления товара (для продавца)
+    function updateProduct() {
+      document.getElementById("content").innerHTML = `
+        <h3>Обновление товара</h3>
+        <form id="updateProductForm">
+          <input type="number" id="updProductId" placeholder="ID товара" required />
+          <select id="updField">
+            <option value="product_name">Название</option>
+            <option value="price">Цена</option>
+            <option value="description">Описание</option>
+          </select>
+          <input type="text" id="updValue" placeholder="Новое значение" required />
+          <button type="submit">Обновить</button>
+        </form>
+        <div id="updResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+      document.getElementById("updateProductForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const product_id = parseInt(document.getElementById("updProductId").value);
+        const field = document.getElementById("updField").value;
+        let value = document.getElementById("updValue").value;
+        const data = { product_id };
+        if (field === "price") {
+          data[field] = parseFloat(value);
+        } else {
+          data[field] = value;
+        }
+        fetch(API_URL + "/update_product", {
+          method: "PUT",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + userData.token
+          },
+          body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("updResult").innerText = JSON.stringify(data);
+        })
+        .catch(err => console.error(err));
+      });
+    }
+
+    // Функция поставки товара (для продавца)
+    function supplyProduct() {
+      document.getElementById("content").innerHTML = `
+        <h3>Поставка товара</h3>
+        <form id="supplyForm">
+          <select id="supplyType">
+            <option value="existing">Существующий товар</option>
+            <option value="new">Новый товар</option>
+          </select>
+          <div id="supplyFields"></div>
+          <button type="submit">Отправить поставку</button>
+        </form>
+        <div id="supplyResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+      document.getElementById("supplyType").addEventListener("change", renderSupplyFields);
+      renderSupplyFields();
+      document.getElementById("supplyForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const supplyType = document.getElementById("supplyType").value;
+        const data = { seller_id: userData.user_id };
+        if (supplyType === "existing") {
+          data.is_new = false;
+          data.product_id = parseInt(document.getElementById("existProductId").value);
+          data.quantity = parseInt(document.getElementById("existQuantity").value);
+        } else {
+          data.is_new = true;
+          data.product_name = document.getElementById("newProductName").value;
+          data.category_id = parseInt(document.getElementById("newCategoryId").value);
+          data.description = document.getElementById("newDescription").value;
+          data.price = parseFloat(document.getElementById("newPrice").value);
+          data.quantity = parseInt(document.getElementById("newQuantity").value);
+        }
+        fetch(API_URL + "/supply", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + userData.token
+          },
+          body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("supplyResult").innerText = JSON.stringify(data);
+        })
+        .catch(err => console.error(err));
+      });
+    }
+    
+    // Отрисовка полей для поставки в зависимости от типа
+    function renderSupplyFields() {
+      const supplyType = document.getElementById("supplyType").value;
+      const fieldsDiv = document.getElementById("supplyFields");
+      if (supplyType === "existing") {
+        fieldsDiv.innerHTML = `
+          <input type="number" id="existProductId" placeholder="ID товара" required />
+          <input type="number" id="existQuantity" placeholder="Количество" required />
+        `;
+      } else {
+        fieldsDiv.innerHTML = `
+          <input type="text" id="newProductName" placeholder="Название товара" required />
+          <input type="number" id="newCategoryId" placeholder="ID категории" required />
+          <input type="text" id="newDescription" placeholder="Описание товара" />
+          <input type="number" id="newPrice" placeholder="Цена" required step="0.01" />
+          <input type="number" id="newQuantity" placeholder="Количество" required />
+        `;
+      }
+    }
+
+    // Функция добавления новой категории (для продавца)
+    function addCategory() {
+      document.getElementById("content").innerHTML = `
+        <h3>Добавление категории</h3>
+        <form id="addCategoryForm">
+          <input type="text" id="catName" placeholder="Название категории" required />
+          <button type="submit">Добавить категорию</button>
+        </form>
+        <div id="addCategoryResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+      document.getElementById("addCategoryForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const category_name = document.getElementById("catName").value;
+        fetch(API_URL + "/add_category", {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + userData.token
+          },
+          body: JSON.stringify({ category_name })
+        })
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("addCategoryResult").innerText = JSON.stringify(data);
+        })
+        .catch(err => console.error(err));
+      });
+    }
+
+    // Список категорий для продавца (таблица)
+    function listCategories() {
+      document.getElementById("content").innerHTML = `
+        <h3>Список категорий</h3>
+        <button onclick="fetchCategories()">Показать категории</button>
+        <div id="categoriesResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+    }
+
+    function fetchCategories() {
+      fetch(API_URL + "/categories")
+        .then(res => res.json())
+        .then(data => {
+          const cats = data.categories || [];
+          let html = `<table>
+            <thead><tr><th>ID</th><th>Название</th></tr></thead><tbody>`;
+          cats.forEach(c => {
+            html += `<tr><td>${c.id}</td><td>${c.name}</td></tr>`;
+          });
+          html += `</tbody></table>`;
+          document.getElementById("categoriesResult").innerHTML = html;
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Функции для просмотра истории поставок (для продавца)
+    function viewSupplyHistory() {
+      document.getElementById("content").innerHTML = `
+        <h3>История поставок</h3>
+        <button onclick="fetchSupplyHistory()">Показать историю поставок</button>
+        <div id="supplyHistoryResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+    }
+    function fetchSupplyHistory() {
+      fetch(API_URL + "/supply_history?seller_id=" + userData.user_id, {
+        headers: { "Authorization": "Bearer " + userData.token }
+      })
+        .then(res => res.json())
+        .then(data => {
+          const supplies = data.supply_history || [];
+          let html = `<table>
+            <thead><tr><th>№ поставки</th><th>ID товара</th><th>Количество</th><th>Дата</th></tr></thead><tbody>`;
+          supplies.forEach(item => {
+            html += `<tr>
+              <td>${item.supply_id}</td>
+              <td>${item.product_id}</td>
+              <td>${item.quantity}</td>
+              <td>${formatDate(item.supply_date)}</td>
+            </tr>`;
+          });
+          html += `</tbody></table>`;
+          document.getElementById("supplyHistoryResult").innerHTML = html;
+        })
+        .catch(err => console.error(err));
+    }
+
+    // Функции для просмотра истории покупок (изменены только они)
+    function viewPurchaseHistory() {
+      document.getElementById("content").innerHTML = `
+        <h3>История покупок</h3>
+        <button onclick="fetchPurchaseHistory()">Показать историю покупок</button>
+        <div id="purchaseHistoryResult"></div>
+        <button onclick="showUserMenu()">Назад</button>
+      `;
+    }
+    function fetchPurchaseHistory() {
+      fetch(API_URL + "/purchase_history?client_id=" + userData.user_id, {
+        headers: { "Authorization": "Bearer " + userData.token }
+      })
+      .then(res => res.json())
+      .then(data => {
+        const history = data.purchase_history || [];
+        let html = `<table>
+          <thead>
+            <tr><th>№ покупки</th><th>ID товара</th><th>Количество</th><th>Цена за ед.</th><th>Итоговая цена</th><th>Дата</th></tr>
+          </thead>
+          <tbody>`;
+        history.forEach(item => {
+          html += `<tr>
+            <td>${item.purchase_id}</td>
+            <td>${item.product_id}</td>
+            <td>${item.quantity}</td>
+            <td>${item.price}</td>
+            <td>${item.total_price}</td>
+            <td>${formatDate(item.purchase_date)}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+        document.getElementById("purchaseHistoryResult").innerHTML = html;
+      })
+      .catch(err => console.error(err));
+    }
+  </script>
+</body>
+</html>
