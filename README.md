@@ -111,6 +111,82 @@ Python
 
 PostgreSQL
 
+## Описание методов
+
+### Серверные эндпоинты
+HTTP-метод | Путь | Краткое описание
+POST | /register | Регистрация нового пользователя (роль: client/seller)
+POST | /login | Авторизация: проверка пароля, выдача токена
+GET | /categories | Получение списка всех категорий
+POST | /add_category | Добавление новой категории (только seller)
+GET | /products | Список доступных товаров (количество > 0)
+POST | /buy | Операция покупки товара (только client)
+GET | /purchase_history | История покупок клиента (только client)
+POST | /supply | Поставка товара (новый или существующий, только seller)
+GET | /supply_history | История поставок (только seller)
+PUT | /update_product | Обновление товара (только владелец-seller)
+GET | /seller_products_revenue | Список своих товаров + заработок по каждому и в общем
+
+### Клиентские функции
+
+Аутентификация и меню
+showRegister() — отобразить форму регистрации
+
+showLogin() — отобразить форму входа
+
+login()/register() — отправка данных на сервер
+
+showUserMenu() — отрисовка кнопок меню в зависимости от роли
+
+logout() — очистка сессии
+
+Утилиты
+formatDate(dateString) — форматирует ISO-дату в DD MMM YYYY
+
+clearContent() — очищает центральный блок контента
+
+Работа с товарами
+listProducts() — базовый шаблон списка товаров
+
+fetchProducts() — загрузка списка товаров через GET /products
+
+displayProductsTable(products) — рендер таблицы товаров
+
+buyProduct() — вывод товаров + кнопка покупки
+
+showBuyForm() — форма покупки для выбранного товара
+
+buy() (внутри JS) — отправка покупки на POST /buy
+
+История покупок (client)
+viewPurchaseHistory() — шаблон блока истории
+
+fetchPurchaseHistory() — загрузка через GET /purchase_history
+
+generatePurchaseHistoryTable(history) — рендер таблицы покупок
+
+Функции продавца
+viewSellerProducts() — кнопка «Мои товары»
+
+fetchSellerProducts() — загрузка /seller_products_revenue и рендер таблицы с доходом
+
+updateProduct() — шаблон формы обновления товара + отправка на PUT /update_product
+
+supplyProduct() — шаблон формы поставки (новый/существующий)
+
+renderSupplyFields() — динамическая отрисовка полей формы поставки
+
+addCategory() — шаблон формы добавления категории + отправка на POST /add_category
+
+listCategories() — кнопка «Список категорий»
+
+fetchCategories() — загрузка /categories и рендер таблицы категорий
+
+viewSupplyHistory() — шаблон блока истории поставок
+
+fetchSupplyHistory() — загрузка /supply_history и рендер таблицы поставок
+
+
 
 ## Инструкция по запуску
 
