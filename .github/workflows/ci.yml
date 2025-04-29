@@ -1,4 +1,4 @@
-name: CI
+name: Build and Test
 
 on:
   push:
@@ -7,33 +7,73 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  build-frontend:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ '3.8', '3.9', '3.10', '3.11' ]
+    name: Проверка клиентской части
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ matrix.python-version }}
+    - name: Проверка наличия client.html
+      run: |
+        if [ ! -f client.html ]; then
+          echo "Файл client.html не найден!"
+          exit 1
+        fi
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Проверка валидации HTML
+      uses: Cyb3r-Jak3/html5validator-action@v0.3.0
+      with:
+        files: "client.html"
 
-      - name: Lint code with flake8
-        run: |
-          pip install flake8
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  test-backend:
+    runs-on: ubuntu-latest
+    name: Сборка и тестирование серверной части
 
-      - name: Run tests
-        run: |
-          if [ -d tests ] || [ -f pytest.ini ]; then pip install pytest; pytest --maxfail=1 --disable-warnings -q; fi
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: admin
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Установка Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Установка зависимостей
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install flask flask_sqlalchemy flask_migrate flask-cors psycopg2-binary
+
+    - name: Инициализация БД
+      env:
+        FLASK_APP: server.py
+      run: |
+        source venv/bin/activate
+        flask db init || true
+        flask db migrate -m "CI migration" || true
+        flask db upgrade
+
+    - name: Тестовый запуск сервера
+      run: |
+        source venv/bin/activate
+        FLASK_APP=server.py flask run &
+        sleep 5
+        curl -f http://127.0.0.1:5000/products || exit 1
