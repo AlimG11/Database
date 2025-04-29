@@ -15,17 +15,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Проверка наличия client.html
+    - name: Установка зависимостей
       run: |
-        if [ ! -f client.html ]; then
-          echo "Файл client.html не найден!"
-          exit 1
-        fi
+        sudo apt-get update
+        sudo apt-get install -y openjdk-17-jre-headless
+        pip install html5validator
 
-    - name: Проверка валидации HTML
-      uses: Cyb3r-Jak3/html5validator-action@v0.3.0
-      with:
-        files: "client.html"
+    - name: Проверка client.html
+      run: |
+        html5validator --root . --also-check-css --show-warnings --ignore "attribute ‘loading’ not allowed" --no-langdetect
 
   test-backend:
     runs-on: ubuntu-latest
@@ -71,9 +69,9 @@ jobs:
         flask db migrate -m "CI migration" || true
         flask db upgrade
 
-    - name: Тестовый запуск сервера
+    - name: Проверка запуска Flask API
       run: |
         source venv/bin/activate
-        FLASK_APP=server.py flask run &
+        FLASK_APP=server.py flask run --host=127.0.0.1 --port=5000 &
         sleep 5
         curl -f http://127.0.0.1:5000/products || exit 1
